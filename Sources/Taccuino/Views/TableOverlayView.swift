@@ -35,6 +35,9 @@ final class TableOverlayView: NSView, NSTextFieldDelegate {
 
     private(set) var selectedRow: Int?
     private(set) var selectedColumn: Int?
+    private var selectionAnchor: TableCellTarget?
+    private var selectionFocus: TableCellTarget?
+    private var isDraggingSelection = false
     private var columnWidths: [CGFloat] = []
     private let rowHeight: CGFloat
     private var editorField: NSTextField?
@@ -63,6 +66,16 @@ final class TableOverlayView: NSView, NSTextFieldDelegate {
     }
 
     override var isFlipped: Bool { true }
+    override var acceptsFirstResponder: Bool { true }
+
+    private var selectedBounds: (top: Int, left: Int, bottom: Int, right: Int)? {
+        guard let anchor = selectionAnchor ?? selectionFocus,
+              let focus = selectionFocus ?? selectionAnchor else { return nil }
+        return (min(anchor.row, focus.row),
+                min(anchor.column, focus.column),
+                max(anchor.row, focus.row),
+                max(anchor.column, focus.column))
+    }
 
     var rows: Int { max(1, table.rows.count) }
     var columns: Int { max(1, table.columnCount) }
@@ -171,8 +184,11 @@ final class TableOverlayView: NSView, NSTextFieldDelegate {
             for column in 0..<columns {
                 let cellRect = cellRect(row: row, column: column)
                 guard cellRect.width > 8 else { continue }
-                if selectedRow == row, selectedColumn == column {
-                    NSColor(theme.accent).withAlphaComponent(0.10).setFill()
+                if let bounds = selectedBounds,
+                   row >= bounds.top, row <= bounds.bottom,
+                   column >= bounds.left, column <= bounds.right {
+                    let isActive = selectedRow == row && selectedColumn == column
+                    NSColor(theme.accent).withAlphaComponent(isActive ? 0.20 : 0.10).setFill()
                     cellRect.fill()
                 }
                 let isEditing = editingCell?.row == row && editingCell?.column == column
@@ -212,10 +228,13 @@ final class TableOverlayView: NSView, NSTextFieldDelegate {
         outer.lineWidth = 1
         outer.stroke()
 
-        if let selectedRow, let selectedColumn,
-           selectedRow < rows, selectedColumn < columns,
-           editingCell == nil {
-            let rect = cellRect(row: selectedRow, column: selectedColumn).insetBy(dx: 1.5, dy: 1.5)
+        if let bounds = selectedBounds, editingCell == nil {
+            let topLeft = cellRect(row: bounds.top, column: bounds.left)
+            let bottomRight = cellRect(row: bounds.bottom, column: bounds.right)
+            let rect = NSRect(x: topLeft.minX,
+                              y: topLeft.minY,
+                              width: bottomRight.maxX - topLeft.minX,
+                              height: bottomRight.maxY - topLeft.minY).insetBy(dx: 1.5, dy: 1.5)
             NSColor(theme.accent).setStroke()
             let selection = NSBezierPath(rect: rect)
             selection.lineWidth = 2
@@ -260,14 +279,165 @@ final class TableOverlayView: NSView, NSTextFieldDelegate {
                  target: target)
             return
         }
+
+        window?.makeFirstResponder(self)
+        if event.clickCount >= 2 {
+            select(row: target.row, column: target.column)
+            beginEditing(row: target.row, column: target.column)
+            return
+        }
+
+        if event.modifierFlags.contains(.shift), let anchor = selectionAnchor {
+            selectionFocus = target
+            selectedRow = anchor.row
+            selectedColumn = anchor.column
+        } else {
+            selectionAnchor = target
+            selectionFocus = target
+            selectedRow = target.row
+            selectedColumn = target.column
+            delegate?.tableOverlay(self, didSelectRow: target.row, column: target.column)
+        }
+        isDraggingSelection = true
+        needsDisplay = true
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard isDraggingSelection, selectionAnchor != nil else { return }
+        let point = convert(event.locationInWindow, from: nil)
+        let target = clampedCell(at: point)
+        if selectionFocus != target {
+            selectionFocus = target
+            needsDisplay = true
+        }
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        isDraggingSelection = false
+    }
+
+    override func selectAll(_ sender: Any?) {
+        guard rows > 0, columns > 0 else { return }
+        selectionAnchor = TableCellTarget(row: 0, column: 0)
+        selectionFocus = TableCellTarget(row: rows - 1, column: columns - 1)
+        selectedRow = 0
+        selectedColumn = 0
+        delegate?.tableOverlay(self, didSelectRow: 0, column: 0)
+        needsDisplay = true
+    }
+
+    @objc func copy(_ sender: Any?) {
+        guard let bounds = selectedBounds else { return }
+        var lines: [String] = []
+        for row in bounds.top...bounds.bottom {
+            var cells: [String] = []
+            for column in bounds.left...bounds.right {
+                let raw = cellText(row: row, column: column)
+                cells.append(MarkdownFormatting.attributedCellText(
+                    raw,
+                    font: font,
+                    color: NSColor(theme.text)
+                ).string)
+            }
+            lines.append(cells.joined(separator: "\t"))
+        }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(lines.joined(separator: "\n"), forType: .string)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        guard let active = selectionAnchor ?? selectionFocus else {
+            super.keyDown(with: event)
+            return
+        }
+        let shift = event.modifierFlags.contains(.shift)
+        switch event.keyCode {
+        case 53: // Esc
+            window?.makeFirstResponder(enclosingTextView)
+        case 36, 76: // Return / keypad Enter
+            beginEditing(row: active.row, column: active.column)
+        case 48: // Tab
+            let target = nextCell(row: active.row, column: active.column, backwards: shift)
+            select(row: target.row, column: target.column)
+        case 123: // Left
+            moveActive(rowDelta: 0, columnDelta: -1, extend: shift)
+        case 124: // Right
+            moveActive(rowDelta: 0, columnDelta: 1, extend: shift)
+        case 125: // Down
+            moveActive(rowDelta: 1, columnDelta: 0, extend: shift)
+        case 126: // Up
+            moveActive(rowDelta: -1, columnDelta: 0, extend: shift)
+        case 51, 117: // Delete / Forward Delete
+            return
+        default:
+            if let characters = event.characters,
+               let scalar = characters.unicodeScalars.first,
+               scalar.value >= 32,
+               !CharacterSet.controlCharacters.contains(scalar),
+               event.modifierFlags.intersection([.command, .control, .option]).isEmpty {
+                beginEditing(row: active.row, column: active.column)
+                if let fieldEditor = window?.firstResponder as? NSTextView {
+                    fieldEditor.selectAll(nil)
+                    fieldEditor.insertText(characters, replacementRange: fieldEditor.selectedRange())
+                }
+            } else {
+                super.keyDown(with: event)
+            }
+        }
+    }
+
+    private func moveActive(rowDelta: Int, columnDelta: Int, extend: Bool) {
+        let source = extend ? (selectionFocus ?? selectionAnchor) : (selectionAnchor ?? selectionFocus)
+        guard let source else { return }
+        let target = TableCellTarget(
+            row: min(max(0, source.row + rowDelta), rows - 1),
+            column: min(max(0, source.column + columnDelta), columns - 1)
+        )
+        if extend {
+            selectionFocus = target
+            needsDisplay = true
+            return
+        }
         select(row: target.row, column: target.column)
-        beginEditing(row: target.row, column: target.column)
+    }
+
+    private func clampedCell(at point: NSPoint) -> TableCellTarget {
+        if columnWidths.count != columns {
+            measure(availableWidth: max(bounds.width, 200))
+        }
+        let row = min(max(0, Int(floor(point.y / rowHeight))), rows - 1)
+        if point.x <= 0 { return TableCellTarget(row: row, column: 0) }
+        var x: CGFloat = 0
+        for (column, width) in columnWidths.enumerated() {
+            if point.x < x + width {
+                return TableCellTarget(row: row, column: column)
+            }
+            x += width
+        }
+        return TableCellTarget(row: row, column: max(0, columns - 1))
     }
 
     func clearSelection() {
-        guard selectedRow != nil || selectedColumn != nil else { return }
+        guard selectedRow != nil || selectedColumn != nil
+                || selectionAnchor != nil || selectionFocus != nil else { return }
         selectedRow = nil
         selectedColumn = nil
+        selectionAnchor = nil
+        selectionFocus = nil
+        needsDisplay = true
+    }
+
+    func selectRange(anchor: TableCellTarget, focus: TableCellTarget) {
+        let a = TableCellTarget(row: min(max(0, anchor.row), rows - 1),
+                                column: min(max(0, anchor.column), columns - 1))
+        let f = TableCellTarget(row: min(max(0, focus.row), rows - 1),
+                                column: min(max(0, focus.column), columns - 1))
+        selectionAnchor = a
+        selectionFocus = f
+        selectedRow = a.row
+        selectedColumn = a.column
+        delegate?.tableOverlay(self, didSelectRow: a.row, column: a.column)
         needsDisplay = true
     }
 
@@ -276,6 +446,8 @@ final class TableOverlayView: NSView, NSTextFieldDelegate {
         let clampedColumn = min(max(0, column), columns - 1)
         selectedRow = clampedRow
         selectedColumn = clampedColumn
+        selectionAnchor = TableCellTarget(row: clampedRow, column: clampedColumn)
+        selectionFocus = selectionAnchor
         delegate?.tableOverlay(self, didSelectRow: clampedRow, column: clampedColumn)
         needsDisplay = true
     }
@@ -431,9 +603,28 @@ final class TableOverlayView: NSView, NSTextFieldDelegate {
     override func menu(for event: NSEvent) -> NSMenu? {
         let point = convert(event.locationInWindow, from: nil)
         if let target = cell(at: point) {
-            select(row: target.row, column: target.column)
+            let insideSelection = selectedBounds.map {
+                target.row >= $0.top && target.row <= $0.bottom
+                    && target.column >= $0.left && target.column <= $0.right
+            } ?? false
+            if !insideSelection {
+                select(row: target.row, column: target.column)
+            }
         }
+        window?.makeFirstResponder(self)
         let menu = NSMenu()
+
+        let copyItem = NSMenuItem(title: L.t("Copia celle", "Copy cells"),
+                                  action: #selector(copy(_:)),
+                                  keyEquivalent: "c")
+        copyItem.target = self
+        menu.addItem(copyItem)
+        let selectAllItem = NSMenuItem(title: L.t("Seleziona tutte le celle", "Select all cells"),
+                                       action: #selector(selectAll(_:)),
+                                       keyEquivalent: "a")
+        selectAllItem.target = self
+        menu.addItem(selectAllItem)
+        menu.addItem(.separator())
 
         func add(_ title: String, _ action: TableOverlayAction) {
             let item = NSMenuItem(title: title, action: #selector(menuAction(_:)), keyEquivalent: "")

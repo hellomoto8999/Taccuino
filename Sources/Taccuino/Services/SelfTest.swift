@@ -171,6 +171,40 @@ enum SelfTest {
                       "elimina colonna")
             }
 
+            // Formattazione senza testo: niente marcatori vuoti.
+            let emptyFormatDoc = Document(text: "")
+            controller.model.addDocument(emptyFormatDoc, select: true)
+            controller.editor.setActive(emptyFormatDoc.id)
+            if let emptyView = controller.editor.textView(for: emptyFormatDoc) {
+                emptyView.setSelectedRange(NSRange(location: 0, length: 0))
+                controller.editor.toggleBold()
+                check(emptyFormatDoc.text.isEmpty, "grassetto su documento vuoto")
+            }
+
+            let wordFormatDoc = Document(text: "hello world")
+            controller.model.addDocument(wordFormatDoc, select: true)
+            controller.editor.setActive(wordFormatDoc.id)
+            if let wordView = controller.editor.textView(for: wordFormatDoc) {
+                wordView.setSelectedRange(NSRange(location: 2, length: 0))
+                controller.editor.toggleBold()
+                check(wordFormatDoc.text == "**hello** world", "grassetto sulla parola")
+                wordView.setSelectedRange(NSRange(location: 4, length: 0))
+                controller.editor.toggleBold()
+                check(wordFormatDoc.text == "hello world", "rimuove grassetto dalla parola")
+                wordView.setSelectedRange(NSRange(location: 5, length: 0))
+                controller.editor.toggleStrikethrough()
+                check(wordFormatDoc.text == "~~hello~~ world", "barrato sulla parola")
+
+                let spacesDoc = Document(text: "   ")
+                controller.model.addDocument(spacesDoc, select: true)
+                controller.editor.setActive(spacesDoc.id)
+                if let spacesView = controller.editor.textView(for: spacesDoc) {
+                    spacesView.setSelectedRange(NSRange(location: 1, length: 0))
+                    controller.editor.toggleItalic()
+                    check(spacesDoc.text == "   ", "corsivo su soli spazi")
+                }
+            }
+
             // Continuazione degli elenchi con Invio.
             let listDoc = Document(text: "- uno")
             controller.model.addDocument(listDoc, select: true)
@@ -200,6 +234,20 @@ enum SelfTest {
                 emptyView.setSelectedRange(NSRange(location: 2, length: 0))
                 emptyView.insertNewline(nil)
                 check(emptyItemDoc.text == "\n", "esce dall'elenco su voce vuota")
+            }
+
+            if let copyTable = MarkdownFormatting.tables(
+                in: "| A | B |\n| --- | --- |\n| 1 | 2 |\n"
+            ).first {
+                let overlay = TableOverlayView(table: copyTable,
+                                               index: 0,
+                                               font: NSFont.systemFont(ofSize: 12),
+                                               theme: Theme.make(dark: false))
+                overlay.selectRange(anchor: TableCellTarget(row: 0, column: 0),
+                                    focus: TableCellTarget(row: 1, column: 1))
+                overlay.copy(nil)
+                let copied = NSPasteboard.general.string(forType: .string) ?? ""
+                check(copied == "A\tB\n1\t2", "copia intervallo celle")
             }
 
             let cellText = MarkdownFormatting.attributedCellText(

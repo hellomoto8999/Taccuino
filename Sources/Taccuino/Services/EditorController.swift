@@ -719,6 +719,12 @@ final class EditorController: NSObject, NSTextViewDelegate {
         settings.formattingEnabled && !(model?.showsMarkdownSource ?? false)
     }
 
+    var isTableInteractionActive: Bool {
+        guard let currentID, let instance = instances[currentID] else { return false }
+        if instance.tableOverlays.contains(where: \.hasActiveEditor) { return true }
+        return instance.textView.window?.firstResponder is TableOverlayView
+    }
+
     func formattingState(for document: Document) -> MarkdownFormattingState {
         guard let instance = instances[document.id] else { return MarkdownFormattingState() }
         var state = MarkdownFormatting.state(for: document.storage.string,
@@ -1099,6 +1105,20 @@ final class EditorController: NSObject, NSTextViewDelegate {
         insertTable(rows: rows, columns: columns)
     }
 
+    /// Seleziona un intervallo rettangolare di celle nella prima tabella.
+    func selectTableRange(row: Int, column: Int, toRow: Int, toColumn: Int) {
+        guard let currentID, let instance = instances[currentID],
+              let overlay = instance.tableOverlays.first else { return }
+        overlay.selectRange(anchor: TableCellTarget(row: row, column: column),
+                            focus: TableCellTarget(row: toRow, column: toColumn))
+        instance.tableSelection = TableCellSelection(
+            tableStart: overlay.table.blockRange.location,
+            row: row,
+            column: column
+        )
+        model?.updateFormattingStateFromEditor()
+    }
+
     /// Seleziona (e opzionalmente apre in modifica) una cella della prima
     /// tabella del documento attivo. Usato anche dai test e dalle demo.
     func focusTableCell(row: Int, column: Int, editing: Bool, tableStart: Int? = nil) {
@@ -1214,16 +1234,15 @@ final class EditorController: NSObject, NSTextViewDelegate {
 
     private func toggleInline(_ marker: String) {
         guard let tv = activeTextView else { return }
-        let selection = tv.selectedRange()
         let ns = tv.string as NSString
-        let markerLength = marker.utf16.count
+        var selection = tv.selectedRange()
         if selection.length == 0 {
-            let caret = selection.location + markerLength
-            if replaceText(in: selection, with: marker + marker, selection: NSRange(location: caret, length: 0)) {
-                afterMarkdownEdit(selection: NSRange(location: caret, length: 0))
-            }
-            return
+            // Con il cursore su una parola formatta quella; su uno spazio
+            // o una riga vuota non inserisce marcatori vuoti (****, ~~~~).
+            guard let word = wordRange(at: selection.location, in: ns) else { return }
+            selection = word
         }
+        let markerLength = marker.utf16.count
         guard NSMaxRange(selection) <= ns.length else { return }
         let selected = ns.substring(with: selection)
         var before = ""
@@ -1253,6 +1272,27 @@ final class EditorController: NSObject, NSTextViewDelegate {
                 afterMarkdownEdit(selection: newSelection)
             }
         }
+    }
+
+    private func wordRange(at location: Int, in ns: NSString) -> NSRange? {
+        guard ns.length > 0 else { return nil }
+        let wordSet = CharacterSet.alphanumerics
+            .union(CharacterSet(charactersIn: "_-'’"))
+        func isWord(_ index: Int) -> Bool {
+            guard index >= 0, index < ns.length else { return false }
+            guard let scalar = UnicodeScalar(ns.character(at: index)) else { return false }
+            return wordSet.contains(scalar)
+        }
+        var probe = min(max(0, location), ns.length)
+        if probe >= ns.length || !isWord(probe) {
+            probe -= 1
+        }
+        guard isWord(probe) else { return nil }
+        var start = probe
+        var end = probe
+        while start > 0, isWord(start - 1) { start -= 1 }
+        while end + 1 < ns.length, isWord(end + 1) { end += 1 }
+        return NSRange(location: start, length: end - start + 1)
     }
 
     // MARK: Blocchi

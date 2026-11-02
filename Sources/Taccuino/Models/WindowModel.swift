@@ -332,6 +332,10 @@ final class WindowModel: ObservableObject {
         settings.formattingEnabled && !isSettingsActive && activeDocument != nil
     }
 
+    var textFormattingAvailable: Bool {
+        formattingAvailable && !(editor?.isTableInteractionActive ?? false)
+    }
+
     func updateFormattingStateFromEditor() {
         guard let document = activeDocument, let editor else {
             let empty = MarkdownFormattingState()
@@ -345,49 +349,49 @@ final class WindowModel: ObservableObject {
     }
 
     func toggleBold() {
-        guard formattingAvailable else { return }
+        guard textFormattingAvailable else { return }
         editor?.toggleBold()
         updateFormattingStateFromEditor()
     }
 
     func toggleItalic() {
-        guard formattingAvailable else { return }
+        guard textFormattingAvailable else { return }
         editor?.toggleItalic()
         updateFormattingStateFromEditor()
     }
 
     func toggleStrikethrough() {
-        guard formattingAvailable else { return }
+        guard textFormattingAvailable else { return }
         editor?.toggleStrikethrough()
         updateFormattingStateFromEditor()
     }
 
     func setHeadingLevel(_ level: Int) {
-        guard formattingAvailable else { return }
+        guard textFormattingAvailable else { return }
         editor?.setHeadingLevel(level)
         updateFormattingStateFromEditor()
     }
 
     func toggleList(_ kind: MarkdownListKind) {
-        guard formattingAvailable else { return }
+        guard textFormattingAvailable else { return }
         editor?.toggleList(kind)
         updateFormattingStateFromEditor()
     }
 
     func indentList(outdent: Bool) {
-        guard formattingAvailable else { return }
+        guard textFormattingAvailable else { return }
         editor?.indentList(outdent: outdent)
         updateFormattingStateFromEditor()
     }
 
     func clearFormatting() {
-        guard formattingAvailable else { return }
+        guard textFormattingAvailable else { return }
         editor?.clearFormatting()
         updateFormattingStateFromEditor()
     }
 
     func insertLink() {
-        guard formattingAvailable else { return }
+        guard textFormattingAvailable else { return }
         editor?.insertLink()
         updateFormattingStateFromEditor()
     }

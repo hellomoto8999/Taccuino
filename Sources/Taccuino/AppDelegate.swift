@@ -316,6 +316,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             }
         }
 
+        if env["TACCUINO_DEMO_TABLE_RANGE"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                controller.editor.selectTableRange(row: 0, column: 0,
+                                                   toRow: 2, toColumn: 2)
+            }
+        }
+
         if env["TACCUINO_DEMO_TABLE_PICKER"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) {
                 controller.model.showTablePicker(at: CGPoint(x: 452, y: 118))
@@ -1002,15 +1009,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         case #selector(menuCloseTab(_:)):
             return controller.model.tabCount > 0
         case #selector(menuToggleBold(_:)):
-            let available = formattingMenuAvailable(controller)
+            let available = textFormattingMenuAvailable(controller)
             menuItem.state = available && controller.model.formattingState.bold ? .on : .off
             return available
         case #selector(menuToggleItalic(_:)):
-            let available = formattingMenuAvailable(controller)
+            let available = textFormattingMenuAvailable(controller)
             menuItem.state = available && controller.model.formattingState.italic ? .on : .off
             return available
         case #selector(menuToggleStrike(_:)):
-            let available = formattingMenuAvailable(controller)
+            let available = textFormattingMenuAvailable(controller)
             menuItem.state = available && controller.model.formattingState.strike ? .on : .off
             return available
         case #selector(menuHeadingNormal(_:)),
@@ -1024,26 +1031,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             case #selector(menuHeading3(_:)): level = 3
             default: level = 0
             }
-            let available = formattingMenuAvailable(controller)
+            let available = textFormattingMenuAvailable(controller)
             menuItem.state = available && controller.model.formattingState.headingLevel == level ? .on : .off
             return available
         case #selector(menuBulletList(_:)):
-            let available = formattingMenuAvailable(controller)
+            let available = textFormattingMenuAvailable(controller)
             menuItem.state = available && controller.model.formattingState.listKind == .bullet ? .on : .off
             return available
         case #selector(menuNumberedList(_:)):
-            let available = formattingMenuAvailable(controller)
+            let available = textFormattingMenuAvailable(controller)
             menuItem.state = available && controller.model.formattingState.listKind == .numbered ? .on : .off
             return available
         case #selector(menuIndentList(_:)):
-            return formattingMenuAvailable(controller) && controller.model.formattingState.listKind != nil
+            return textFormattingMenuAvailable(controller) && controller.model.formattingState.listKind != nil
         case #selector(menuOutdentList(_:)):
-            return formattingMenuAvailable(controller)
+            return textFormattingMenuAvailable(controller)
                 && controller.model.formattingState.listKind != nil
                 && controller.model.formattingState.listLevel > 0
-        case #selector(menuInsertLink(_:)),
-             #selector(menuInsertTable(_:)),
-             #selector(menuClearFormatting(_:)):
+        case #selector(menuInsertLink(_:)), #selector(menuClearFormatting(_:)):
+            return textFormattingMenuAvailable(controller)
+        case #selector(menuInsertTable(_:)):
             return formattingMenuAvailable(controller)
         case #selector(menuAddTableRowAbove(_:)),
              #selector(menuAddTableRowBelow(_:)),
@@ -1080,6 +1087,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             return false
         }
         return true
+    }
+
+    private func textFormattingMenuAvailable(_ controller: WindowController) -> Bool {
+        formattingMenuAvailable(controller) && !controller.editor.isTableInteractionActive
     }
 
     // MARK: - Scorciatoie in stile Windows
