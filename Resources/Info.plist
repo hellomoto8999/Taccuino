@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>Taccuino</string>
+    <key>CFBundleDisplayName</key>
+    <string>Taccuino</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.frank.taccuino</string>
+    <key>CFBundleExecutable</key>
+    <string>Taccuino</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>it</string>
+    </array>
+    <key>LSMinimumSystemVersion</key>
+    <string>15.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.productivity</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>ATSApplicationFontsPath</key>
+    <string>Fonts</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSRequiresAquaSystemAppearance</key>
+    <false/>
+    <key>NSHumanReadableCopyright</key>
+    <string>© 2026 Taccuino. Independent project, not affiliated with Microsoft.</string>
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>Taccuino apre e salva i documenti di testo che scegli.</string>
+    <key>NSDesktopFolderUsageDescription</key>
+    <string>Taccuino apre e salva i documenti di testo che scegli.</string>
+    <key>NSDownloadsFolderUsageDescription</key>
+    <string>Taccuino apre e salva i documenti di testo che scegli.</string>
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>Documento di testo</string>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>public.plain-text</string>
+                <string>public.text</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>
