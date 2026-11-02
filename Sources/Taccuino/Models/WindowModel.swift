@@ -349,18 +349,36 @@ final class WindowModel: ObservableObject {
     }
 
     func toggleBold() {
+        guard formattingAvailable else { return }
+        if editor?.isTableRangeFocused == true {
+            _ = editor?.toggleTableInline("**")
+            updateFormattingStateFromEditor()
+            return
+        }
         guard textFormattingAvailable else { return }
         editor?.toggleBold()
         updateFormattingStateFromEditor()
     }
 
     func toggleItalic() {
+        guard formattingAvailable else { return }
+        if editor?.isTableRangeFocused == true {
+            _ = editor?.toggleTableInline("*")
+            updateFormattingStateFromEditor()
+            return
+        }
         guard textFormattingAvailable else { return }
         editor?.toggleItalic()
         updateFormattingStateFromEditor()
     }
 
     func toggleStrikethrough() {
+        guard formattingAvailable else { return }
+        if editor?.isTableRangeFocused == true {
+            _ = editor?.toggleTableInline("~~")
+            updateFormattingStateFromEditor()
+            return
+        }
         guard textFormattingAvailable else { return }
         editor?.toggleStrikethrough()
         updateFormattingStateFromEditor()
@@ -385,6 +403,12 @@ final class WindowModel: ObservableObject {
     }
 
     func clearFormatting() {
+        guard formattingAvailable else { return }
+        if editor?.isTableRangeFocused == true {
+            _ = editor?.clearTableFormatting()
+            updateFormattingStateFromEditor()
+            return
+        }
         guard textFormattingAvailable else { return }
         editor?.clearFormatting()
         updateFormattingStateFromEditor()

@@ -236,6 +236,18 @@ enum SelfTest {
                 check(emptyItemDoc.text == "\n", "esce dall'elenco su voce vuota")
             }
 
+            let formatTableDoc = Document(text: "| A | B |\n| --- | --- |\n| one | two |\n")
+            controller.model.addDocument(formatTableDoc, select: true)
+            controller.editor.setActive(formatTableDoc.id)
+            controller.editor.refreshMarkdownRendering()
+            controller.editor.selectTableRange(row: 1, column: 0, toRow: 1, toColumn: 1)
+            _ = controller.editor.toggleTableInline("**")
+            check(formatTableDoc.text.contains("**one**")
+                    && formatTableDoc.text.contains("**two**"),
+                  "grassetto su intervallo celle")
+            _ = controller.editor.clearTableFormatting()
+            check(formatTableDoc.text.contains("| one | two |"), "cancella formattazione celle")
+
             if let copyTable = MarkdownFormatting.tables(
                 in: "| A | B |\n| --- | --- |\n| 1 | 2 |\n"
             ).first {

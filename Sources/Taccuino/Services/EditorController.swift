@@ -149,6 +149,7 @@ final class EditorController: NSObject, NSTextViewDelegate {
     private var isUpdatingTableOverlays = false
     private var isCommittingTableCell = false
     private var pendingTableSelection: (selection: TableCellSelection, editing: Bool)?
+    private var pendingTableRange: (tableStart: Int, range: TableCellRange)?
 
     override init() {
         super.init()
@@ -725,6 +726,13 @@ final class EditorController: NSObject, NSTextViewDelegate {
         return instance.textView.window?.firstResponder is TableOverlayView
     }
 
+    var isTableRangeFocused: Bool {
+        guard let currentID, let instance = instances[currentID] else { return false }
+        if instance.textView.window?.firstResponder is TableOverlayView { return true }
+        return instance.tableSelection != nil
+            && !instance.tableOverlays.contains(where: \.hasActiveEditor)
+    }
+
     func formattingState(for document: Document) -> MarkdownFormattingState {
         guard let instance = instances[document.id] else { return MarkdownFormattingState() }
         var state = MarkdownFormatting.state(for: document.storage.string,
@@ -850,6 +858,8 @@ final class EditorController: NSObject, NSTextViewDelegate {
 
         let pending = pendingTableSelection
         pendingTableSelection = nil
+        let pendingRange = pendingTableRange
+        pendingTableRange = nil
 
         guard isMarkdownFormatted,
               let layoutManager = tv.layoutManager,
@@ -900,7 +910,25 @@ final class EditorController: NSObject, NSTextViewDelegate {
 
         instance.lastOverlayWidth = availableWidth
 
-        if let pending,
+        var restoredRange = false
+        if let pendingRange,
+           let overlay = instance.tableOverlays.first(where: {
+               $0.table.blockRange.location == pendingRange.tableStart
+           }) {
+            overlay.selectRange(
+                anchor: TableCellTarget(row: pendingRange.range.top, column: pendingRange.range.left),
+                focus: TableCellTarget(row: pendingRange.range.bottom, column: pendingRange.range.right)
+            )
+            instance.tableSelection = TableCellSelection(
+                tableStart: pendingRange.tableStart,
+                row: pendingRange.range.top,
+                column: pendingRange.range.left
+            )
+            restoredRange = true
+        }
+
+        if !restoredRange,
+           let pending,
            let overlay = instance.tableOverlays.first(where: {
                $0.table.blockRange.location == pending.selection.tableStart
            }) {
@@ -913,12 +941,13 @@ final class EditorController: NSObject, NSTextViewDelegate {
                                          column: pending.selection.column)
                 }
             }
-        } else if let existing = instance.tableSelection,
+        } else if !restoredRange,
+                  let existing = instance.tableSelection,
                   let overlay = instance.tableOverlays.first(where: {
                       $0.table.blockRange.location == existing.tableStart
                   }) {
             overlay.select(row: existing.row, column: existing.column)
-        } else {
+        } else if !restoredRange {
             instance.tableSelection = nil
         }
     }
@@ -1103,6 +1132,32 @@ final class EditorController: NSObject, NSTextViewDelegate {
 
     func insertTableFromPicker(rows: Int, columns: Int) {
         insertTable(rows: rows, columns: columns)
+    }
+
+    private func activeTableOverlay(in instance: EditorInstance) -> TableOverlayView? {
+        if let responder = instance.textView.window?.firstResponder as? TableOverlayView {
+            return responder
+        }
+        if let selection = instance.tableSelection,
+           let overlay = instance.tableOverlays.first(where: {
+               $0.table.blockRange.location == selection.tableStart
+           }) {
+            return overlay
+        }
+        return instance.tableOverlays.first
+    }
+
+    func toggleTableInline(_ marker: String) -> Bool {
+        guard let currentID, let instance = instances[currentID],
+              let overlay = activeTableOverlay(in: instance) else { return false }
+        return overlay.toggleInlineFormatting(marker)
+    }
+
+    @discardableResult
+    func clearTableFormatting() -> Bool {
+        guard let currentID, let instance = instances[currentID],
+              let overlay = activeTableOverlay(in: instance) else { return false }
+        return overlay.clearInlineFormatting()
     }
 
     /// Seleziona un intervallo rettangolare di celle nella prima tabella.
@@ -1650,6 +1705,112 @@ extension EditorController: TableOverlayDelegate {
                         column: column,
                         text: text,
                         moveTo: target)
+    }
+
+    func tableOverlay(_ overlay: TableOverlayView,
+                      apply changes: [TableCellChange],
+                      selecting range: TableCellRange?) {
+        guard let instance = instances.values.first(where: {
+            $0.tableOverlays.contains(where: { $0 === overlay })
+        }) else { return }
+        let tableStart = overlay.table.blockRange.location
+        let current = MarkdownFormatting.tables(in: instance.textView.string)
+        guard let table = current.first(where: { $0.blockRange.location == tableStart }),
+              !table.rows.isEmpty else { return }
+
+        let width = max(table.columnCount,
+                        changes.map { $0.column + 1 }.max() ?? table.columnCount)
+        var rows = table.rows.map { row -> [String] in
+            var padded = row
+            while padded.count < width { padded.append("") }
+            return padded
+        }
+        for change in changes {
+            guard change.row >= 0, change.row < rows.count,
+                  change.column >= 0, change.column < width else { continue }
+            rows[change.row][change.column] = change.text
+        }
+
+        pendingTableRange = range.map { (tableStart, $0) }
+        isCommittingTableCell = true
+        let changed = replaceTable(table, rows: rows, in: instance)
+        isCommittingTableCell = false
+        if changed {
+            renderMarkdown(instance)
+            focusTableOverlay(tableStart: tableStart, in: instance)
+        } else {
+            pendingTableRange = nil
+            if let range,
+               let currentOverlay = instance.tableOverlays.first(where: {
+                   $0.table.blockRange.location == tableStart
+               }) {
+                currentOverlay.selectRange(
+                    anchor: TableCellTarget(row: range.top, column: range.left),
+                    focus: TableCellTarget(row: range.bottom, column: range.right)
+                )
+            }
+        }
+        model?.updateFormattingStateFromEditor()
+    }
+
+    func tableOverlay(_ overlay: TableOverlayView,
+                      paste pastedRows: [[String]],
+                      atRow row: Int,
+                      column: Int) {
+        guard !pastedRows.isEmpty,
+              let instance = instances.values.first(where: {
+                  $0.tableOverlays.contains(where: { $0 === overlay })
+              }) else { return }
+        let tableStart = overlay.table.blockRange.location
+        let current = MarkdownFormatting.tables(in: instance.textView.string)
+        guard let table = current.first(where: { $0.blockRange.location == tableStart }),
+              !table.rows.isEmpty else { return }
+
+        let pasteColumns = max(1, pastedRows.map(\.count).max() ?? 1)
+        let neededColumns = max(table.columnCount, column + pasteColumns)
+        let neededRows = max(table.rows.count, row + pastedRows.count)
+        var rows = table.rows.map { source -> [String] in
+            var padded = source
+            while padded.count < neededColumns { padded.append("") }
+            return padded
+        }
+        while rows.count < neededRows {
+            rows.append(Array(repeating: "", count: neededColumns))
+        }
+        for (rowOffset, pasted) in pastedRows.enumerated() {
+            for (columnOffset, value) in pasted.enumerated() {
+                let targetRow = row + rowOffset
+                let targetColumn = column + columnOffset
+                guard targetRow < rows.count, targetColumn < neededColumns else { continue }
+                rows[targetRow][targetColumn] = value
+            }
+        }
+
+        let range = TableCellRange(top: row,
+                                   left: column,
+                                   bottom: row + pastedRows.count - 1,
+                                   right: column + pasteColumns - 1)
+        pendingTableRange = (tableStart, range)
+        isCommittingTableCell = true
+        let changed = replaceTable(table, rows: rows, in: instance)
+        isCommittingTableCell = false
+        if changed {
+            renderMarkdown(instance)
+            focusTableOverlay(tableStart: tableStart, in: instance)
+        } else {
+            pendingTableRange = nil
+        }
+        model?.updateFormattingStateFromEditor()
+    }
+
+    private func focusTableOverlay(tableStart: Int, in instance: EditorInstance) {
+        DispatchQueue.main.async { [weak instance] in
+            guard let instance,
+                  let overlay = instance.tableOverlays.first(where: {
+                      $0.table.blockRange.location == tableStart
+                  }) else { return }
+            instance.textView.window?.makeFirstResponder(overlay)
+        }
     }
 
     func tableOverlay(_ overlay: TableOverlayView, perform action: TableOverlayAction) {

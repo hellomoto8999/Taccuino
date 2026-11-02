@@ -1009,15 +1009,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
         case #selector(menuCloseTab(_:)):
             return controller.model.tabCount > 0
         case #selector(menuToggleBold(_:)):
-            let available = textFormattingMenuAvailable(controller)
+            let available = inlineFormattingMenuAvailable(controller)
             menuItem.state = available && controller.model.formattingState.bold ? .on : .off
             return available
         case #selector(menuToggleItalic(_:)):
-            let available = textFormattingMenuAvailable(controller)
+            let available = inlineFormattingMenuAvailable(controller)
             menuItem.state = available && controller.model.formattingState.italic ? .on : .off
             return available
         case #selector(menuToggleStrike(_:)):
-            let available = textFormattingMenuAvailable(controller)
+            let available = inlineFormattingMenuAvailable(controller)
             menuItem.state = available && controller.model.formattingState.strike ? .on : .off
             return available
         case #selector(menuHeadingNormal(_:)),
@@ -1048,7 +1048,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             return textFormattingMenuAvailable(controller)
                 && controller.model.formattingState.listKind != nil
                 && controller.model.formattingState.listLevel > 0
-        case #selector(menuInsertLink(_:)), #selector(menuClearFormatting(_:)):
+        case #selector(menuClearFormatting(_:)):
+            return inlineFormattingMenuAvailable(controller)
+        case #selector(menuInsertLink(_:)):
             return textFormattingMenuAvailable(controller)
         case #selector(menuInsertTable(_:)):
             return formattingMenuAvailable(controller)
@@ -1091,6 +1093,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     private func textFormattingMenuAvailable(_ controller: WindowController) -> Bool {
         formattingMenuAvailable(controller) && !controller.editor.isTableInteractionActive
+    }
+
+    private func inlineFormattingMenuAvailable(_ controller: WindowController) -> Bool {
+        guard formattingMenuAvailable(controller) else { return false }
+        if controller.editor.isTableRangeFocused { return true }
+        return !controller.editor.isTableInteractionActive
     }
 
     // MARK: - Scorciatoie in stile Windows

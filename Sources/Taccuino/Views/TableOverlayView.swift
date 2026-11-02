@@ -15,6 +15,19 @@ struct TableCellTarget: Equatable {
     var column: Int
 }
 
+struct TableCellRange: Equatable {
+    var top: Int
+    var left: Int
+    var bottom: Int
+    var right: Int
+}
+
+struct TableCellChange {
+    var row: Int
+    var column: Int
+    var text: String
+}
+
 protocol TableOverlayDelegate: AnyObject {
     func tableOverlay(_ overlay: TableOverlayView,
                       didCommit text: String,
@@ -23,6 +36,13 @@ protocol TableOverlayDelegate: AnyObject {
                       moveTo target: TableCellTarget?)
     func tableOverlay(_ overlay: TableOverlayView, didSelectRow row: Int, column: Int)
     func tableOverlay(_ overlay: TableOverlayView, perform action: TableOverlayAction)
+    func tableOverlay(_ overlay: TableOverlayView,
+                      apply changes: [TableCellChange],
+                      selecting range: TableCellRange?)
+    func tableOverlay(_ overlay: TableOverlayView,
+                      paste rows: [[String]],
+                      atRow row: Int,
+                      column: Int)
 }
 
 /// Griglia reale disegnata sopra il Markdown nascosto della tabella.
@@ -75,6 +95,12 @@ final class TableOverlayView: NSView, NSTextFieldDelegate {
                 min(anchor.column, focus.column),
                 max(anchor.row, focus.row),
                 max(anchor.column, focus.column))
+    }
+
+    var selectedCellRange: TableCellRange? {
+        guard let bounds = selectedBounds else { return nil }
+        return TableCellRange(top: bounds.top, left: bounds.left,
+                              bottom: bounds.bottom, right: bounds.right)
     }
 
     var rows: Int { max(1, table.rows.count) }
@@ -327,11 +353,11 @@ final class TableOverlayView: NSView, NSTextFieldDelegate {
     }
 
     @objc func copy(_ sender: Any?) {
-        guard let bounds = selectedBounds else { return }
+        guard let range = selectedCellRange else { return }
         var lines: [String] = []
-        for row in bounds.top...bounds.bottom {
+        for row in range.top...range.bottom {
             var cells: [String] = []
-            for column in bounds.left...bounds.right {
+            for column in range.left...range.right {
                 let raw = cellText(row: row, column: column)
                 cells.append(MarkdownFormatting.attributedCellText(
                     raw,
@@ -344,6 +370,89 @@ final class TableOverlayView: NSView, NSTextFieldDelegate {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(lines.joined(separator: "\n"), forType: .string)
+    }
+
+    @objc func cut(_ sender: Any?) {
+        copy(sender)
+        clearSelectedCells()
+    }
+
+    @objc func delete(_ sender: Any?) {
+        clearSelectedCells()
+    }
+
+    @objc func paste(_ sender: Any?) {
+        guard let active = selectionAnchor ?? selectionFocus,
+              let text = NSPasteboard.general.string(forType: .string),
+              !text.isEmpty else { return }
+        let normalized = text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        var rows = normalized
+            .components(separatedBy: "\n")
+            .map { $0.components(separatedBy: "\t") }
+        if rows.count > 1, rows.last == [""] {
+            rows.removeLast()
+        }
+        delegate?.tableOverlay(self, paste: rows,
+                               atRow: active.row, column: active.column)
+    }
+
+    private func clearSelectedCells() {
+        guard let range = selectedCellRange else { return }
+        var changes: [TableCellChange] = []
+        for row in range.top...range.bottom {
+            for column in range.left...range.right where !cellText(row: row, column: column).isEmpty {
+                changes.append(TableCellChange(row: row, column: column, text: ""))
+            }
+        }
+        guard !changes.isEmpty else { return }
+        delegate?.tableOverlay(self, apply: changes, selecting: range)
+    }
+
+    /// Applica o rimuove un marcatore inline sul contenuto delle celle selezionate.
+    func toggleInlineFormatting(_ marker: String) -> Bool {
+        guard let range = selectedCellRange else { return false }
+        var changes: [TableCellChange] = []
+        for row in range.top...range.bottom {
+            for column in range.left...range.right {
+                let text = cellText(row: row, column: column)
+                guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
+                let updated: String
+                if text.hasPrefix(marker), text.hasSuffix(marker),
+                   text.utf16.count > marker.utf16.count * 2 {
+                    updated = String(text.dropFirst(marker.count).dropLast(marker.count))
+                } else {
+                    updated = marker + text + marker
+                }
+                changes.append(TableCellChange(row: row, column: column, text: updated))
+            }
+        }
+        guard !changes.isEmpty else { return false }
+        delegate?.tableOverlay(self, apply: changes, selecting: range)
+        return true
+    }
+
+    func clearInlineFormatting() -> Bool {
+        guard let range = selectedCellRange else { return false }
+        var changes: [TableCellChange] = []
+        for row in range.top...range.bottom {
+            for column in range.left...range.right {
+                let text = cellText(row: row, column: column)
+                guard !text.isEmpty else { continue }
+                let clean = MarkdownFormatting.attributedCellText(
+                    text,
+                    font: font,
+                    color: NSColor(theme.text)
+                ).string
+                if clean != text {
+                    changes.append(TableCellChange(row: row, column: column, text: clean))
+                }
+            }
+        }
+        guard !changes.isEmpty else { return false }
+        delegate?.tableOverlay(self, apply: changes, selecting: range)
+        return true
     }
 
     override func keyDown(with event: NSEvent) {
@@ -369,13 +478,13 @@ final class TableOverlayView: NSView, NSTextFieldDelegate {
         case 126: // Up
             moveActive(rowDelta: -1, columnDelta: 0, extend: shift)
         case 51, 117: // Delete / Forward Delete
-            return
+            clearSelectedCells()
         default:
             if let characters = event.characters,
                let scalar = characters.unicodeScalars.first,
                scalar.value >= 32,
                !CharacterSet.controlCharacters.contains(scalar),
-               event.modifierFlags.intersection([.command, .control, .option]).isEmpty {
+               event.modifierFlags.intersection([.command, .control]).isEmpty {
                 beginEditing(row: active.row, column: active.column)
                 if let fieldEditor = window?.firstResponder as? NSTextView {
                     fieldEditor.selectAll(nil)
@@ -614,11 +723,26 @@ final class TableOverlayView: NSView, NSTextFieldDelegate {
         window?.makeFirstResponder(self)
         let menu = NSMenu()
 
+        let cutItem = NSMenuItem(title: L.t("Taglia celle", "Cut cells"),
+                                 action: #selector(cut(_:)),
+                                 keyEquivalent: "x")
+        cutItem.target = self
+        menu.addItem(cutItem)
         let copyItem = NSMenuItem(title: L.t("Copia celle", "Copy cells"),
                                   action: #selector(copy(_:)),
                                   keyEquivalent: "c")
         copyItem.target = self
         menu.addItem(copyItem)
+        let pasteItem = NSMenuItem(title: L.t("Incolla celle", "Paste cells"),
+                                   action: #selector(paste(_:)),
+                                   keyEquivalent: "v")
+        pasteItem.target = self
+        menu.addItem(pasteItem)
+        let deleteItem = NSMenuItem(title: L.t("Cancella contenuto", "Clear contents"),
+                                    action: #selector(delete(_:)),
+                                    keyEquivalent: "")
+        deleteItem.target = self
+        menu.addItem(deleteItem)
         let selectAllItem = NSMenuItem(title: L.t("Seleziona tutte le celle", "Select all cells"),
                                        action: #selector(selectAll(_:)),
                                        keyEquivalent: "a")
