@@ -316,6 +316,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             }
         }
 
+        if env["TACCUINO_DEMO_TABLE_PASTE"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString("Pasted A\tPasted B\nPasted C\tPasted D", forType: .string)
+                controller.editor.selectTableRange(row: 1, column: 0,
+                                                   toRow: 1, toColumn: 1)
+                controller.editor.focusActiveTableOverlay()
+                controller.editor.pasteIntoTableSelection()
+            }
+        }
+
+        if env["TACCUINO_DEMO_TABLE_DELETE"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                controller.editor.selectTableRange(row: 1, column: 0,
+                                                   toRow: 2, toColumn: 1)
+                controller.editor.focusActiveTableOverlay()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    guard let window = controller.window else { return }
+                    let event = NSEvent.keyEvent(
+                        with: .keyDown,
+                        location: .zero,
+                        modifierFlags: [],
+                        timestamp: ProcessInfo.processInfo.systemUptime,
+                        windowNumber: window.windowNumber,
+                        context: nil,
+                        characters: "\u{7F}",
+                        charactersIgnoringModifiers: "\u{7F}",
+                        isARepeat: false,
+                        keyCode: 51
+                    )
+                    if let event { window.sendEvent(event) }
+                }
+            }
+        }
+
         if env["TACCUINO_DEMO_TABLE_RANGE"] == "1" {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 controller.editor.selectTableRange(row: 0, column: 0,

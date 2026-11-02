@@ -423,24 +423,28 @@ final class WindowModel: ObservableObject {
     func addTableRow(before: Bool = false) {
         guard formattingAvailable else { return }
         editor?.addTableRow(before: before)
+        editor?.focusActiveTableOverlay()
         updateFormattingStateFromEditor()
     }
 
     func addTableColumn(before: Bool = false) {
         guard formattingAvailable else { return }
         editor?.addTableColumn(before: before)
+        editor?.focusActiveTableOverlay()
         updateFormattingStateFromEditor()
     }
 
     func deleteTableRow() {
         guard formattingAvailable else { return }
         editor?.deleteTableRow()
+        editor?.focusActiveTableOverlay()
         updateFormattingStateFromEditor()
     }
 
     func deleteTableColumn() {
         guard formattingAvailable else { return }
         editor?.deleteTableColumn()
+        editor?.focusActiveTableOverlay()
         updateFormattingStateFromEditor()
     }
 
@@ -519,7 +523,11 @@ final class WindowModel: ObservableObject {
         case .deleteColumn:
             deleteTableColumn()
         }
-        editor?.focusActive()
+        if formattingState.inTable {
+            editor?.focusActiveTableOverlay()
+        } else {
+            editor?.focusActive()
+        }
     }
 
     func insertTableFromPicker(rows: Int, columns: Int) {

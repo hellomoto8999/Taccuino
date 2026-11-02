@@ -1147,6 +1147,18 @@ final class EditorController: NSObject, NSTextViewDelegate {
         return instance.tableOverlays.first
     }
 
+    func focusActiveTableOverlay() {
+        guard let currentID, let instance = instances[currentID],
+              let overlay = activeTableOverlay(in: instance) else { return }
+        instance.textView.window?.makeFirstResponder(overlay)
+    }
+
+    func pasteIntoTableSelection() {
+        guard let currentID, let instance = instances[currentID],
+              let overlay = activeTableOverlay(in: instance) else { return }
+        overlay.paste(nil)
+    }
+
     func toggleTableInline(_ marker: String) -> Bool {
         guard let currentID, let instance = instances[currentID],
               let overlay = activeTableOverlay(in: instance) else { return false }
