@@ -167,19 +167,6 @@ Sources/Taccuino/
 - **Silent close**: with *Restore previous session* enabled (default), closing the window or the last tab preserves text, cursor, scroll position and window geometry. If you disable it, Taccuino asks to save and does not restore the session.
 - The app is not sandboxed and is ad-hoc signed.
 
-## Similar projects
-
-Taccuino is not the first macOS take on Windows Notepad. Some related projects:
-
-- [macpad](https://github.com/thefinder808/macpad) — native Windows 11 Notepad clone with tabs, sessions and Windows encodings.
-- [Notepad for Mac](https://github.com/davisfree/Notepad-for-Mac) — AppKit/NSDocument Windows 11 Notepad replica.
-- [Notepad for macOS](https://github.com/dangphuc2470/notepad) — Tauri/Rust/React Windows 11-style Notepad.
-- [MacPad](https://github.com/jadhavgaurav/MacPad) — native Markdown editor with live preview and multiple cursors.
-- [NoteMac](https://github.com/thethtwe-dev/NoteMac) — lightweight plain-text editor inspired by Windows 11 Notepad.
-- [Nextpad++](https://nextpad.org/) — native Notepad++ port for macOS.
-
-Taccuino focuses on the **2025 Notepad formatting model**: Markdown-backed rich text, headings and lists, links, and real editable tables on top of a native AppKit text editor.
-
 ## License
 
 Released under the [MIT License](LICENSE).
