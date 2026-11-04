@@ -105,7 +105,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
             }
         }
         if let path = env["TACCUINO_SNAPSHOT"] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            let snapshotDelay = Double(env["TACCUINO_SNAPSHOT_DELAY"] ?? "") ?? 1.5
+            DispatchQueue.main.asyncAfter(deadline: .now() + snapshotDelay) { [weak self] in
                 if let dumpPath = env["TACCUINO_DUMP_TEXT"], let self {
                     let controller = self.activeController
                     let text = controller?.editor.activeTextView?.string ?? "<nil>"

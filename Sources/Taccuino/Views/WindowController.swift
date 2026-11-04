@@ -70,6 +70,14 @@ final class WindowController: NSWindowController, NSWindowDelegate, WindowModelH
     private let settings = SettingsStore.shared
     private var cancellables = Set<AnyCancellable>()
 
+    private struct FileStamp: Equatable {
+        var modificationDate: Date?
+        var size: Int?
+    }
+
+    private var externalChangeTimer: Timer?
+    private var fileStamps: [UUID: FileStamp] = [:]
+
     init(session: SessionWindow?, cascadeIndex: Int = 0) {
         let restored = WindowController.restoreDocuments(from: session)
         var documents = restored.documents
@@ -127,6 +135,13 @@ final class WindowController: NSWindowController, NSWindowDelegate, WindowModelH
                 model.selectDocument(documents[activeIndex].id)
             }
         }
+
+        primeFileStamps()
+        startExternalChangeMonitoring()
+    }
+
+    deinit {
+        externalChangeTimer?.invalidate()
     }
 
     required init?(coder: NSCoder) {
@@ -139,6 +154,81 @@ final class WindowController: NSWindowController, NSWindowDelegate, WindowModelH
         DispatchQueue.main.async { [weak self] in
             self?.focusEditor()
         }
+    }
+
+    // MARK: - Modifiche esterne al file
+
+    private func fileStamp(for url: URL) -> FileStamp? {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path) else {
+            return nil
+        }
+        return FileStamp(
+            modificationDate: attributes[.modificationDate] as? Date,
+            size: (attributes[.size] as? NSNumber)?.intValue
+        )
+    }
+
+    private func primeFileStamps() {
+        for document in model.documents {
+            guard let url = document.fileURL else { continue }
+            if let stamp = fileStamp(for: url) {
+                fileStamps[document.id] = stamp
+            }
+        }
+    }
+
+    private func startExternalChangeMonitoring() {
+        guard !ProcessInfo.processInfo.arguments.contains("--selftest") else { return }
+        externalChangeTimer?.invalidate()
+        let timer = Timer(timeInterval: 1.5, repeats: true) { [weak self] _ in
+            self?.checkForExternalFileChanges()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        externalChangeTimer = timer
+    }
+
+    private func checkForExternalFileChanges() {
+        guard NSApp.modalWindow == nil else { return }
+        for document in model.documents {
+            guard let url = document.fileURL else { continue }
+            guard let current = fileStamp(for: url) else { continue }
+            if fileStamps[document.id] == current { continue }
+            guard let decoded = try? TextFile.read(from: url) else { continue }
+            fileStamps[document.id] = current
+            if decoded.text == document.text { continue }
+
+            if document.isModified {
+                guard NSApp.isActive else {
+                    fileStamps[document.id] = nil
+                    continue
+                }
+                let alert = NSAlert()
+                alert.alertStyle = .warning
+                alert.messageText = L.t("Il file è stato modificato",
+                                        "The file has changed on disk")
+                alert.informativeText = L.t(
+                    "\(document.displayName) è stato modificato fuori da Taccuino. Vuoi ricaricare la versione su disco o mantenere le modifiche locali?",
+                    "\(document.displayName) was changed outside Taccuino. Reload the version on disk or keep your local changes?"
+                )
+                alert.addButton(withTitle: L.t("Mantieni le mie modifiche", "Keep my changes"))
+                alert.addButton(withTitle: L.t("Ricarica", "Reload"))
+                if alert.runModal() == .alertSecondButtonReturn {
+                    applyExternalReload(document, decoded: decoded)
+                }
+            } else {
+                applyExternalReload(document, decoded: decoded)
+            }
+        }
+    }
+
+    private func applyExternalReload(_ document: Document, decoded: DecodedText) {
+        document.reloadContents(decoded.text,
+                                encoding: decoded.encoding,
+                                lineEnding: decoded.lineEnding)
+        editor.documentContentsDidReload(document)
+        model.refreshStatusFromActive()
+        updateWindowTitle()
+        scheduleSessionSave()
     }
 
     func focusEditor() {
@@ -263,6 +353,7 @@ final class WindowController: NSWindowController, NSWindowDelegate, WindowModelH
                                     modified: modified)
             model.addDocument(document, replacingEmpty: true)
             editor.setActive(document.id)
+            fileStamps[document.id] = fileStamp(for: standardized)
             settings.addRecent(standardized)
         } catch {
             presentError(error, title: L.t("Impossibile aprire il file", "Could not open the file"))
@@ -325,6 +416,7 @@ final class WindowController: NSWindowController, NSWindowDelegate, WindowModelH
         do {
             _ = try TextFile.write(document.text, to: targetURL, encoding: encoding, lineEnding: lineEnding)
             document.markSaved(url: targetURL, encoding: encoding, lineEnding: lineEnding)
+            fileStamps[document.id] = fileStamp(for: targetURL)
             settings.addRecent(targetURL)
             updateWindowTitle()
             scheduleSessionSave()

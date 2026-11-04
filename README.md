@@ -31,6 +31,7 @@ A native macOS text editor that recreates the **Windows 11 Notepad** experience:
 - **Toolbar utilities**: read the document or selection aloud, switch theme, and open Settings directly from the right side of the formatting toolbar.
 - **Multiple tabs**: new tab, close, drag to reorder, context menu (save, copy path, reveal in Finder, close others/to the right), unsaved indicator and a Settings tab.
 - **Notepad-style session restore**: at launch, all windows, tabs, cursors, scroll positions and unsaved contents are restored. With the option enabled, closing the window or the last tab **does not prompt to save**: the app quits and the note is there on the next launch. The session is stored in `~/Library/Application Support/Taccuino/session.json`.
+- **Automatic external reload**: while a file is open, Taccuino checks it on disk every 1.5 seconds. If another app or a sync client changes it and the note has no local edits, the editor reloads silently; if you have unsaved changes, Taccuino asks whether to reload the disk version or keep your edits.
 - **Multiple windows** (`Ctrl/⌘+N`) with full session restore.
 - **Native text editor** (NSTextView): per-tab undo/redo, selection, text dragging, plain-text paste, 8-character tab stops, continuous spell checking and optional autocorrect.
 - **Word wrap** from the View menu or Settings; when disabled, horizontal scrolling is available.

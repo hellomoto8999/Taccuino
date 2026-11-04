@@ -72,6 +72,19 @@ final class Document: ObservableObject, Identifiable {
         onMetadataChange?()
     }
 
+    /// Sostituisce il contenuto dopo una modifica arrivata dall'esterno
+    /// (per esempio da un'altra app o da una cartella sincronizzata).
+    func reloadContents(_ text: String,
+                        encoding: TextEncoding,
+                        lineEnding: LineEnding) {
+        storage.mutableString.setString(TextFile.normalizeNewlines(text))
+        self.encoding = encoding
+        self.lineEnding = lineEnding
+        self.isModified = false
+        undoManager.removeAllActions()
+        onMetadataChange?()
+    }
+
     func resetUndoHistory() {
         undoManager.removeAllActions()
     }

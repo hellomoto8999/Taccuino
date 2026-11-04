@@ -752,6 +752,17 @@ final class EditorController: NSObject, NSTextViewDelegate {
         model?.updateFormattingStateFromEditor()
     }
 
+    /// Ridisegna un documento dopo che il suo contenuto è stato ricaricato
+    /// dal disco (modifica esterna).
+    func documentContentsDidReload(_ document: Document) {
+        if let instance = instances[document.id] {
+            renderMarkdown(instance)
+        }
+        if model?.activeDocument?.id == document.id {
+            model?.updateFormattingStateFromEditor()
+        }
+    }
+
     private func renderMarkdown(_ instance: EditorInstance) {
         guard let storage = instance.textView.textStorage else { return }
         let document = instance.document
