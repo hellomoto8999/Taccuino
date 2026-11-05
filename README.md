@@ -20,7 +20,7 @@ A native macOS text editor that recreates the **Windows 11 Notepad** experience:
 
 ![Tab context menu](docs/screenshot-tabs.png)
 
-*Tab menu (Option+right-click).*
+*Tab context menu.*
 
 ## Features
 
@@ -29,7 +29,7 @@ A native macOS text editor that recreates the **Windows 11 Notepad** experience:
 - **Markdown formatting**: toolbar below the tabs with normal text and headings (H1–H3), bulleted/numbered lists with indentation, bold, italic, strikethrough, links, tables and clear formatting. With no selection, bold/italic/strikethrough format the word at the cursor; on empty text or whitespace they do nothing instead of inserting stray `****` or `~~~~` markers. A dedicated **Format** menu in the macOS menu bar mirrors the toolbar. The toolbar can be shown or hidden from *View* and Settings. If you disable formatting, you can re-enable it from *View › Enable formatting*, *Format › Enable formatting* or Settings. Switch between **Formatted** and **Markdown** views from the Format menu or the status-bar button. Formatting is stored as Markdown and can be disabled in Settings.
 - **Real tables**: Markdown tables are rendered as a Windows 11-style grid with a header, borders and editable cells. The **Table** button opens an 8×8 grid picker for rows and columns. Click to select a cell, double-click (or start typing) to edit it, drag or Shift-click to select a rectangular range, use the arrow keys to move and Shift+arrows to extend the selection. `⌘C`, `⌘X`, `⌘V` and Delete work on ranges: copy/cut as tab-separated text, paste TSV data (adding rows/columns when needed) and clear cell contents. Bold, italic, strikethrough and clear formatting apply to the selected cells. **Format › Table**, the table context menu and the picker let you add rows/columns above, below, left or right and delete them. Files remain standard Markdown tables.
 - **Toolbar utilities**: read the document or selection aloud, switch theme, and open Settings directly from the right side of the formatting toolbar.
-- **Multiple tabs**: new tab, close, drag to reorder, unsaved indicator and a Settings tab. **Right-click a tab to close it**; **Option+right-click** (or Control+right-click) opens the tab menu with save, copy path, reveal in Finder and close others/to the right.
+- **Multiple tabs**: new tab, close, drag to reorder, unsaved indicator and a Settings tab. **Middle-click a tab to close it**; right-click opens the tab menu with save, copy path, reveal in Finder and close others/to the right.
 - **Notepad-style session restore**: at launch, all windows, tabs, cursors, scroll positions and unsaved contents are restored. With the option enabled, closing the window or the last tab **does not prompt to save**: the app quits and the note is there on the next launch. The session is stored in `~/Library/Application Support/Taccuino/session.json`.
 - **Automatic external reload**: while a file is open, Taccuino checks it on disk every 1.5 seconds. If another app or a sync client changes it and the note has no local edits, the editor reloads silently; if you have unsaved changes, Taccuino asks whether to reload the disk version or keep your edits.
 - **Multiple windows** (`Ctrl/⌘+N`) with full session restore.

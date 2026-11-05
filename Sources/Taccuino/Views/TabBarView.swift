@@ -27,20 +27,24 @@ struct TabShape: Shape {
 
 /// Cattura il clic destro senza intercettare quelli sinistri.
 struct RightClickCatcher: NSViewRepresentable {
-    let onRightClick: (NSPoint, NSEvent.ModifierFlags) -> Void
+    let onRightClick: (NSPoint) -> Void
+    let onMiddleClick: () -> Void
 
     func makeNSView(context: Context) -> RightClickView {
         let view = RightClickView()
         view.onRightClick = onRightClick
+        view.onMiddleClick = onMiddleClick
         return view
     }
 
     func updateNSView(_ nsView: RightClickView, context: Context) {
         nsView.onRightClick = onRightClick
+        nsView.onMiddleClick = onMiddleClick
     }
 
     final class RightClickView: NSView {
-        var onRightClick: ((NSPoint, NSEvent.ModifierFlags) -> Void)?
+        var onRightClick: ((NSPoint) -> Void)?
+        var onMiddleClick: (() -> Void)?
 
         override func hitTest(_ point: NSPoint) -> NSView? {
             guard let event = NSApp.currentEvent else { return nil }
@@ -53,7 +57,15 @@ struct RightClickCatcher: NSViewRepresentable {
         }
 
         override func rightMouseDown(with event: NSEvent) {
-            onRightClick?(event.locationInWindow, event.modifierFlags)
+            onRightClick?(event.locationInWindow)
+        }
+
+        override func otherMouseDown(with event: NSEvent) {
+            if event.buttonNumber == 2 {
+                onMiddleClick?()
+            } else {
+                super.otherMouseDown(with: event)
+            }
         }
     }
 }
@@ -170,13 +182,10 @@ struct TabBarView: View {
                     hoveredDocument = nil
                 }
             },
-            onRightClick: { point, modifiers in
-                if modifiers.contains(.option) || modifiers.contains(.control) {
-                    model.openTabMenu(document, at: rootPoint(from: point))
-                } else {
-                    model.closeTab(document.id)
-                }
+            onRightClick: { point in
+                model.openTabMenu(document, at: rootPoint(from: point))
             },
+            onMiddleClick: { model.closeTab(document.id) },
             onDrag: {
                 draggingDocument = document.id
                 model.editor?.persistState()
@@ -227,8 +236,8 @@ struct TabBarView: View {
         .onTapGesture { model.selectSettings() }
         .onHover { hoveringSettings = $0 }
         .background(
-            RightClickCatcher { point, modifiers in
-                if modifiers.contains(.option) || modifiers.contains(.control) {
+            RightClickCatcher(
+                onRightClick: { point in
                     model.popup = PopupState(
                         items: [
                             MenuItem(title: L.t("Chiudi scheda", "Close tab"),
@@ -238,10 +247,9 @@ struct TabBarView: View {
                         anchor: rootPoint(from: point),
                         width: 240
                     )
-                } else {
-                    model.closeSettingsTab()
-                }
-            }
+                },
+                onMiddleClick: { model.closeSettingsTab() }
+            )
         )
     }
 
@@ -280,7 +288,8 @@ private struct TabItemView: View {
     let onSelect: () -> Void
     let onClose: () -> Void
     let onHover: (Bool) -> Void
-    let onRightClick: (NSPoint, NSEvent.ModifierFlags) -> Void
+    let onRightClick: (NSPoint) -> Void
+    let onMiddleClick: () -> Void
     let onDrag: () -> Void
     let onDrop: (UUID?) -> Void
     let onDropTarget: (Bool) -> Void
@@ -356,9 +365,7 @@ private struct TabItemView: View {
         .onTapGesture { onSelect() }
         .onHover { onHover($0) }
         .background(
-            RightClickCatcher { point, modifiers in
-                onRightClick(point, modifiers)
-            }
+            RightClickCatcher(onRightClick: onRightClick, onMiddleClick: onMiddleClick)
         )
         .onDrag {
             onDrag()
@@ -369,8 +376,8 @@ private struct TabItemView: View {
             onTarget: onDropTarget,
             onPerform: onDrop
         ))
-        .help(L.t("\(document.displayName) — clic destro per chiudere; Opzione+clic destro per il menu",
-                  "\(document.displayName) — right-click to close; Option+right-click for the menu"))
+        .help(L.t("\(document.displayName) — clic centrale per chiudere, clic destro per il menu",
+                  "\(document.displayName) — middle-click to close, right-click for the menu"))
     }
 }
 
