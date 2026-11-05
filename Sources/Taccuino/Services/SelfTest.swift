@@ -171,6 +171,27 @@ enum SelfTest {
                       "elimina colonna")
             }
 
+            // Salvataggio automatico dei file già salvati.
+            let autosaveURL = temp.appendingPathComponent("autosave-test.txt")
+            do {
+                _ = try TextFile.write("start\n", to: autosaveURL, encoding: .utf8, lineEnding: .lf)
+                controller.openURL(autosaveURL)
+                if let autosaveDoc = controller.model.documents.first(where: {
+                    $0.fileURL?.standardizedFileURL == autosaveURL.standardizedFileURL
+                }) {
+                    autosaveDoc.storage.mutableString.setString("saved automatically\n")
+                    autosaveDoc.markModified()
+                    controller.autosaveDocument(autosaveDoc)
+                    let reloaded = try? TextFile.read(from: autosaveURL)
+                    check(reloaded?.text == "saved automatically\n", "salvataggio automatico file")
+                    check(!autosaveDoc.isModified, "autosave azzera stato modificato")
+                } else {
+                    check(false, "autosave: documento non aperto")
+                }
+            } catch {
+                check(false, "autosave: \(error)")
+            }
+
             // Formattazione senza testo: niente marcatori vuoti.
             let emptyFormatDoc = Document(text: "")
             controller.model.addDocument(emptyFormatDoc, select: true)

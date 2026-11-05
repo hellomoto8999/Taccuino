@@ -56,6 +56,7 @@ protocol WindowModelHost: AnyObject {
     func closeWindow()
     func updateWindowTitle()
     func scheduleSessionSave()
+    func scheduleAutosave(_ document: Document)
     func presentError(_ error: Error, title: String?)
     func showSettings()
     var isLastWindow: Bool { get }
@@ -316,6 +317,7 @@ final class WindowModel: ObservableObject {
             updateFormattingStateFromEditor()
         }
         host?.scheduleSessionSave()
+        host?.scheduleAutosave(document)
     }
 
     func editorSelectionChanged(_ document: Document, line: Int, column: Int) {

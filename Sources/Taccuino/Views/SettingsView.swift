@@ -68,8 +68,13 @@ struct SettingsView: View {
                     }
                 }
 
-                section(L.t("Avvio", "Startup")) {
+                section(L.t("File e avvio", "Files & startup")) {
                     SettingsCard(theme: theme) {
+                        toggleRow(title: L.t("Salvataggio automatico", "Auto-save"),
+                                  description: L.t("Salva automaticamente sul disco i file già salvati, dopo una breve pausa.",
+                                                   "Automatically save previously saved files to disk after a short pause."),
+                                  isOn: $settings.autosaveFiles)
+                        rowDivider
                         toggleRow(title: L.t("Ripristina la sessione precedente", "Restore previous session"),
                                   description: L.t("All'avvio riapre le schede, i cursori e i contenuti non salvati.",
                                                    "Reopen tabs, cursors and unsaved content at launch."),

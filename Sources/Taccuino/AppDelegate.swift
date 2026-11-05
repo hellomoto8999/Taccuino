@@ -398,12 +398,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation, 
 
     func applicationWillTerminate(_ notification: Notification) {
         sessionWorkItem?.cancel()
+        for controller in controllers {
+            controller.flushAutosaves()
+        }
         if !isTerminating {
             saveSessionNow()
         }
     }
 
     func applicationDidResignActive(_ notification: Notification) {
+        for controller in controllers {
+            controller.flushAutosaves()
+        }
         scheduleSessionSave()
     }
 

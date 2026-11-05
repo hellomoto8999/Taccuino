@@ -66,6 +66,7 @@ final class SettingsStore: ObservableObject {
         static let windowChrome = "taccuino.windowChrome"
         static let formattingEnabled = "taccuino.formattingEnabled"
         static let formattingToolbarVisible = "taccuino.formattingToolbarVisible"
+        static let autosaveFiles = "taccuino.autosaveFiles"
         static let recent = "taccuino.recentFiles"
     }
 
@@ -126,6 +127,10 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(formattingToolbarVisible, forKey: Key.formattingToolbarVisible) }
     }
 
+    @Published var autosaveFiles: Bool {
+        didSet { defaults.set(autosaveFiles, forKey: Key.autosaveFiles) }
+    }
+
     @Published private(set) var recentFiles: [String]
 
     private init() {
@@ -146,6 +151,7 @@ final class SettingsStore: ObservableObject {
         windowChrome = WindowChromeStyle(rawValue: defaults.string(forKey: Key.windowChrome) ?? "") ?? .windows
         formattingEnabled = defaults.object(forKey: Key.formattingEnabled) as? Bool ?? true
         formattingToolbarVisible = defaults.object(forKey: Key.formattingToolbarVisible) as? Bool ?? true
+        autosaveFiles = defaults.object(forKey: Key.autosaveFiles) as? Bool ?? true
         recentFiles = defaults.stringArray(forKey: Key.recent) ?? []
     }
 

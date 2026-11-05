@@ -77,6 +77,7 @@ final class WindowController: NSWindowController, NSWindowDelegate, WindowModelH
 
     private var externalChangeTimer: Timer?
     private var fileStamps: [UUID: FileStamp] = [:]
+    private var autosaveWorkItems: [UUID: DispatchWorkItem] = [:]
 
     init(session: SessionWindow?, cascadeIndex: Int = 0) {
         let restored = WindowController.restoreDocuments(from: session)
@@ -153,6 +154,72 @@ final class WindowController: NSWindowController, NSWindowDelegate, WindowModelH
         window?.makeKeyAndOrderFront(sender)
         DispatchQueue.main.async { [weak self] in
             self?.focusEditor()
+        }
+    }
+
+    // MARK: - Salvataggio automatico
+
+    func scheduleAutosave(_ document: Document) {
+        autosaveWorkItems[document.id]?.cancel()
+        autosaveWorkItems[document.id] = nil
+        guard settings.autosaveFiles, document.fileURL != nil else { return }
+
+        let work = DispatchWorkItem { [weak self, weak document] in
+            guard let self, let document else { return }
+            guard self.model.documents.contains(where: { $0.id == document.id }) else { return }
+            self.autosaveDocument(document)
+        }
+        autosaveWorkItems[document.id] = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9, execute: work)
+    }
+
+    func autosaveDocument(_ document: Document) {
+        autosaveWorkItems[document.id]?.cancel()
+        autosaveWorkItems[document.id] = nil
+        guard settings.autosaveFiles,
+              document.isModified,
+              let url = document.fileURL,
+              model.documents.contains(where: { $0.id == document.id }) else { return }
+
+        guard let current = fileStamp(for: url) else { return }
+        guard let known = fileStamps[document.id] else {
+            fileStamps[document.id] = current
+            return
+        }
+        guard known == current else {
+            // Il file è cambiato fuori dall'app: lascia gestire il conflitto
+            // al monitor delle modifiche esterne.
+            return
+        }
+
+        if document.encoding == .ansi {
+            let converted = document.text.replacingOccurrences(
+                of: "\n",
+                with: document.lineEnding.separator
+            )
+            if document.encoding.encode(converted)?.lossy == true { return }
+        }
+
+        do {
+            _ = try TextFile.write(document.text,
+                                   to: url,
+                                   encoding: document.encoding,
+                                   lineEnding: document.lineEnding)
+            document.markSavedInPlace()
+            fileStamps[document.id] = fileStamp(for: url)
+            updateWindowTitle()
+            scheduleSessionSave()
+        } catch {
+            // Lascia il documento modificato; un salvataggio manuale mostrerà
+            // l'errore con il consueto pannello.
+        }
+    }
+
+    func flushAutosaves() {
+        for work in autosaveWorkItems.values { work.cancel() }
+        autosaveWorkItems.removeAll()
+        for document in model.documents {
+            autosaveDocument(document)
         }
     }
 
@@ -275,6 +342,7 @@ final class WindowController: NSWindowController, NSWindowDelegate, WindowModelH
     }
 
     func windowWillClose(_ notification: Notification) {
+        flushAutosaves()
         guard let appDelegate = NSApp.delegate as? AppDelegate else { return }
         appDelegate.windowWillClose(self)
         appDelegate.unregister(self)
@@ -367,6 +435,8 @@ final class WindowController: NSWindowController, NSWindowDelegate, WindowModelH
 
     @discardableResult
     func saveDocument(_ document: Document, saveAs: Bool) -> Bool {
+        autosaveWorkItems[document.id]?.cancel()
+        autosaveWorkItems[document.id] = nil
         var url = document.fileURL
         var encoding = document.encoding
         var lineEnding = document.lineEnding
