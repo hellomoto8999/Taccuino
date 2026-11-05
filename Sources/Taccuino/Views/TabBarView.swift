@@ -27,7 +27,7 @@ struct TabShape: Shape {
 
 /// Cattura il clic destro senza intercettare quelli sinistri.
 struct RightClickCatcher: NSViewRepresentable {
-    let onRightClick: (NSPoint) -> Void
+    let onRightClick: (NSPoint, NSEvent.ModifierFlags) -> Void
 
     func makeNSView(context: Context) -> RightClickView {
         let view = RightClickView()
@@ -40,7 +40,7 @@ struct RightClickCatcher: NSViewRepresentable {
     }
 
     final class RightClickView: NSView {
-        var onRightClick: ((NSPoint) -> Void)?
+        var onRightClick: ((NSPoint, NSEvent.ModifierFlags) -> Void)?
 
         override func hitTest(_ point: NSPoint) -> NSView? {
             guard let event = NSApp.currentEvent else { return nil }
@@ -53,7 +53,7 @@ struct RightClickCatcher: NSViewRepresentable {
         }
 
         override func rightMouseDown(with event: NSEvent) {
-            onRightClick?(event.locationInWindow)
+            onRightClick?(event.locationInWindow, event.modifierFlags)
         }
     }
 }
@@ -170,9 +170,12 @@ struct TabBarView: View {
                     hoveredDocument = nil
                 }
             },
-            onRightClick: { point in
-                let rootPoint = rootPoint(from: point)
-                model.openTabMenu(document, at: rootPoint)
+            onRightClick: { point, modifiers in
+                if modifiers.contains(.option) || modifiers.contains(.control) {
+                    model.openTabMenu(document, at: rootPoint(from: point))
+                } else {
+                    model.closeTab(document.id)
+                }
             },
             onDrag: {
                 draggingDocument = document.id
@@ -224,16 +227,20 @@ struct TabBarView: View {
         .onTapGesture { model.selectSettings() }
         .onHover { hoveringSettings = $0 }
         .background(
-            RightClickCatcher { point in
-                model.popup = PopupState(
-                    items: [
-                        MenuItem(title: L.t("Chiudi scheda", "Close tab"),
-                                 shortcut: "Ctrl+W",
-                                 action: { model.closeSettingsTab() })
-                    ],
-                    anchor: rootPoint(from: point),
-                    width: 240
-                )
+            RightClickCatcher { point, modifiers in
+                if modifiers.contains(.option) || modifiers.contains(.control) {
+                    model.popup = PopupState(
+                        items: [
+                            MenuItem(title: L.t("Chiudi scheda", "Close tab"),
+                                     shortcut: "Ctrl+W",
+                                     action: { model.closeSettingsTab() })
+                        ],
+                        anchor: rootPoint(from: point),
+                        width: 240
+                    )
+                } else {
+                    model.closeSettingsTab()
+                }
             }
         )
     }
@@ -273,7 +280,7 @@ private struct TabItemView: View {
     let onSelect: () -> Void
     let onClose: () -> Void
     let onHover: (Bool) -> Void
-    let onRightClick: (NSPoint) -> Void
+    let onRightClick: (NSPoint, NSEvent.ModifierFlags) -> Void
     let onDrag: () -> Void
     let onDrop: (UUID?) -> Void
     let onDropTarget: (Bool) -> Void
@@ -349,8 +356,8 @@ private struct TabItemView: View {
         .onTapGesture { onSelect() }
         .onHover { onHover($0) }
         .background(
-            RightClickCatcher { point in
-                onRightClick(point)
+            RightClickCatcher { point, modifiers in
+                onRightClick(point, modifiers)
             }
         )
         .onDrag {
@@ -362,7 +369,8 @@ private struct TabItemView: View {
             onTarget: onDropTarget,
             onPerform: onDrop
         ))
-        .help(document.displayName)
+        .help(L.t("\(document.displayName) — clic destro per chiudere; Opzione+clic destro per il menu",
+                  "\(document.displayName) — right-click to close; Option+right-click for the menu"))
     }
 }
 
