@@ -22,8 +22,6 @@ struct SettingsView: View {
                     SettingsCard(theme: theme) {
                         themeRow
                         rowDivider
-                        chromeRow
-                        rowDivider
                         fontRow
                         rowDivider
                         zoomRow
@@ -143,22 +141,6 @@ struct SettingsView: View {
                     at: CGPoint(x: frame.minX, y: frame.maxY + 2)
                 ) { index in
                     settings.theme = options[index]
-                }
-            }
-        }
-    }
-
-    private var chromeRow: some View {
-        row(title: L.t("Controlli finestra", "Window controls")) {
-            FluentCombo(value: settings.windowChrome.displayName, theme: theme, width: 180) { frame in
-                let options = WindowChromeStyle.allCases
-                let selected = options.firstIndex(of: settings.windowChrome) ?? 0
-                model.showDropdown(
-                    options: options.map(\.displayName),
-                    selected: selected,
-                    at: CGPoint(x: frame.minX, y: frame.maxY + 2)
-                ) { index in
-                    settings.windowChrome = options[index]
                 }
             }
         }

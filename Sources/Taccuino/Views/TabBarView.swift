@@ -83,24 +83,20 @@ struct TabBarView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let isMac = settings.windowChrome == .macOS
-            let leading: CGFloat = isMac ? 14 : 8
-            let lights: CGFloat = isMac ? 52 : 0
-            let captions: CGFloat = isMac ? 0 : 138
-            let trailing: CGFloat = isMac ? 8 : 0
+            let leading: CGFloat = 14
+            let lights: CGFloat = 52
+            let trailing: CGFloat = 8
             let dragWidth: CGFloat = 50
-            let fixed = leading + lights + 18 + 18 + dragWidth + 30 + trailing + captions
+            let fixed = leading + lights + 18 + 18 + dragWidth + 30 + trailing
             let available = max(200, geo.size.width - fixed)
             let count = max(1, model.tabCount)
             let tabWidth = min(320, max(84, available / CGFloat(count) - 2))
 
             HStack(spacing: 6) {
-                if isMac {
-                    MacTrafficLights(model: model, theme: theme)
-                        .frame(width: lights)
-                    AppMark()
-                        .frame(width: 18, height: 18)
-                }
+                MacTrafficLights(model: model, theme: theme)
+                    .frame(width: lights)
+                AppMark()
+                    .frame(width: 18, height: 18)
 
                 ScrollViewReader { proxy in
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -132,10 +128,6 @@ struct TabBarView: View {
                 WindowDragArea()
                     .frame(width: dragWidth, height: TabMetrics.barHeight)
 
-                if !isMac {
-                    WindowsCaptionButtons(model: model, theme: theme)
-                        .frame(width: captions)
-                }
             }
             .padding(.leading, leading)
             .padding(.trailing, trailing)

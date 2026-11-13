@@ -1,6 +1,6 @@
 # Taccuino
 
-A native macOS text editor that recreates the **Windows 11 Notepad** experience: tabs, status bar, find & replace, Windows encodings, Markdown formatting, real tables and session restore. The UI follows Windows 11 / Fluent design, with **Windows 11 window controls** by default and optional macOS traffic lights. Commands live in the macOS menu bar; the window contains only the tab strip, formatting toolbar, editor and status bar. The interface is available in English and Italian, following the macOS language.
+A native macOS text editor that recreates the **Windows 11 Notepad** experience: tabs, status bar, find & replace, Windows encodings, Markdown formatting, real tables and session restore. The UI follows Windows 11 / Fluent design, with native **macOS traffic-light** window controls. Commands live in the macOS menu bar; the window contains only the tab strip, formatting toolbar, editor and status bar. The interface is available in English and Italian, following the macOS language.
 
 > Independent project, not affiliated with Microsoft. “Notepad” and “Windows” are trademarks of Microsoft Corporation. The code, the Taccuino name and the app icon are original. Bundled fonts (Selawik, Cascadia Mono) are distributed under the SIL OFL 1.1 license; Consolas is not bundled.
 
@@ -10,9 +10,7 @@ A native macOS text editor that recreates the **Windows 11 Notepad** experience:
 |---|---|
 | ![Dark theme](docs/screenshot-dark.png) | ![Find and replace](docs/screenshot-find.png) |
 
-| Settings | macOS window controls (optional) |
-|---|---|
-| ![Settings](docs/screenshot-settings.png) | ![macOS window controls](docs/screenshot-macos.png) |
+![Settings](docs/screenshot-settings.png)
 
 ![Tables](docs/screenshot-tables.png)
 
@@ -24,7 +22,7 @@ A native macOS text editor that recreates the **Windows 11 Notepad** experience:
 
 ## Features
 
-- **Faithful Windows 11 look**: tabs integrated into the title bar, status bar and a translucent **Mica-like** surface in light and dark themes with Fluent blue accents. Window controls are the **Windows 11** minimize/maximize/close buttons by default; macOS traffic lights are available in *Settings › Appearance › Window controls*.
+- **Faithful Windows 11 look**: tabs integrated into the title bar, status bar and a translucent **Mica-like** surface in light and dark themes with Fluent blue accents. Window controls are the native **macOS traffic lights**, aligned with the tab strip.
 - **No in-window menu bar**: File, Edit, View, Format, Window and Settings are in the macOS menu bar. The window only contains tabs, the formatting toolbar, the editor and the status bar.
 - **Markdown formatting**: toolbar below the tabs with normal text and headings (H1–H3), bulleted/numbered lists with indentation, bold, italic, strikethrough, links, tables and clear formatting. With no selection, bold/italic/strikethrough format the word at the cursor; on empty text or whitespace they do nothing instead of inserting stray `****` or `~~~~` markers. A dedicated **Format** menu in the macOS menu bar mirrors the toolbar. The toolbar can be shown or hidden from *View* and Settings. If you disable formatting, you can re-enable it from *View › Enable formatting*, *Format › Enable formatting* or Settings. Switch between **Formatted** and **Markdown** views from the Format menu or the status-bar button. Formatting is stored as Markdown and can be disabled in Settings.
 - **Real tables**: Markdown tables are rendered as a Windows 11-style grid with a header, borders and editable cells. The **Table** button opens an 8×8 grid picker for rows and columns. Click to select a cell, double-click (or start typing) to edit it, drag or Shift-click to select a rectangular range, use the arrow keys to move and Shift+arrows to extend the selection. `⌘C`, `⌘X`, `⌘V` and Delete work on ranges: copy/cut as tab-separated text, paste TSV data (adding rows/columns when needed) and clear cell contents. Bold, italic, strikethrough and clear formatting apply to the selected cells. **Format › Table**, the table context menu and the picker let you add rows/columns above, below, left or right and delete them. Files remain standard Markdown tables.
@@ -47,7 +45,7 @@ A native macOS text editor that recreates the **Windows 11 Notepad** experience:
 - **Themes**: System, Light, Dark. The theme follows macOS appearance changes while the app is open.
 - **File and formatting settings**: auto-save for saved files, formatting/toolbar toggles and default zoom are persistent. Autocorrect can also be toggled from *Edit › Spelling › Autocorrect*.
 - **Bilingual**: English and Italian, following the macOS language. You can set the language for the app only in *System Settings › General › Language & Region › Applications*.
-- **Aligned window**: Windows 11 caption buttons by default (or optional macOS traffic lights), drawn and centered, draggable tab strip, double-click to zoom and full screen from the menu.
+- **Aligned window**: macOS traffic lights drawn and centered, draggable tab strip, double-click to zoom and full screen from the menu.
 - **No telemetry**, no servers, no network access.
 
 ## Requirements
@@ -156,7 +154,7 @@ Sources/Taccuino/
 
 ## Notes and limitations
 
-- **macOS adaptations**: Open/Save panels are native macOS panels. Window buttons are drawn by Taccuino for perfect alignment: **Windows 11 chrome by default**, or macOS traffic lights from Settings. Commands live in the macOS menu bar.
+- **macOS adaptations**: Open/Save panels are native macOS panels. Window buttons are the native **macOS traffic lights**, drawn by Taccuino for perfect alignment with the tab strip. Commands live in the macOS menu bar.
 - The Mica surface uses macOS's translucent material tinted with Fluent colors: it is a Mica-like effect, not a pixel-perfect sampling of the Windows desktop.
 - **Not included**: Microsoft cloud features (Rewrite/Summarize with Copilot), which require Microsoft services. Local Markdown formatting is included (bold, italic, strikethrough, headings, lists, links, tables, Formatted/Markdown view).
 - Formatting is stored as Markdown. In Formatted view, headings, bold, italic, strikethrough and links are rendered visually, and tables appear as editable grids; lists still show Markdown markers (`-`, `1.`). The Markdown view shows the complete source, tables included.

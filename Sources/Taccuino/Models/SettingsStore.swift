@@ -17,20 +17,6 @@ enum ThemeMode: String, CaseIterable, Identifiable {
     }
 }
 
-enum WindowChromeStyle: String, CaseIterable, Identifiable {
-    case macOS
-    case windows
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .macOS: return "macOS"
-        case .windows: return L.t("Windows", "Windows")
-        }
-    }
-}
-
 enum FontStyle: String, CaseIterable, Identifiable {
     case regular
     case bold
@@ -63,7 +49,6 @@ final class SettingsStore: ObservableObject {
         static let spellCheck = "taccuino.spellCheck"
         static let autocorrect = "taccuino.autocorrect"
         static let restoreSession = "taccuino.restoreSession"
-        static let windowChrome = "taccuino.windowChrome"
         static let formattingEnabled = "taccuino.formattingEnabled"
         static let formattingToolbarVisible = "taccuino.formattingToolbarVisible"
         static let autosaveFiles = "taccuino.autosaveFiles"
@@ -115,10 +100,6 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(restoreSession, forKey: Key.restoreSession) }
     }
 
-    @Published var windowChrome: WindowChromeStyle {
-        didSet { defaults.set(windowChrome.rawValue, forKey: Key.windowChrome) }
-    }
-
     @Published var formattingEnabled: Bool {
         didSet { defaults.set(formattingEnabled, forKey: Key.formattingEnabled) }
     }
@@ -148,7 +129,6 @@ final class SettingsStore: ObservableObject {
         spellCheck = defaults.object(forKey: Key.spellCheck) as? Bool ?? true
         autocorrect = defaults.object(forKey: Key.autocorrect) as? Bool ?? false
         restoreSession = defaults.object(forKey: Key.restoreSession) as? Bool ?? true
-        windowChrome = WindowChromeStyle(rawValue: defaults.string(forKey: Key.windowChrome) ?? "") ?? .windows
         formattingEnabled = defaults.object(forKey: Key.formattingEnabled) as? Bool ?? true
         formattingToolbarVisible = defaults.object(forKey: Key.formattingToolbarVisible) as? Bool ?? true
         autosaveFiles = defaults.object(forKey: Key.autosaveFiles) as? Bool ?? true
